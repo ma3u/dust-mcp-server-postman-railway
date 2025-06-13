@@ -1,6 +1,8 @@
 # Postman MCP Generator
 
-Welcome to your generated MCP server! 🚀 This project was created with the [Postman MCP Generator](https://postman.com/explore/mcp-generator), configured to [Model Context Provider (MCP)](https://modelcontextprotocol.io/introduction) Server output mode. It provides you with:
+Welcome to your generated MCP server! 🚀
+
+**GitHub Repository:** [https://github.com/ma3u/dust-mcp-server-postman-railway](https://github.com/ma3u/dust-mcp-server-postman-railway) This project was created with the [Postman MCP Generator](https://postman.com/explore/mcp-generator), configured to [Model Context Provider (MCP)](https://modelcontextprotocol.io/introduction) Server output mode. It provides you with:
 
 - ✅ An MCP-compatible server (`mcpServer.js`)
 - ✅ Automatically generated JavaScript tools for each selected Postman API request
