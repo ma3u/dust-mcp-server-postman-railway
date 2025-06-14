@@ -12,16 +12,37 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import { discoverTools } from "./lib/tools.js";
-
+import { agentTools } from "./tools/agent/agentTools.js";
+import { SessionManager } from "./lib/sessionManager.js";
+import { createFileRoutes } from "./routes/fileRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import cors from "cors";
+import bodyParser from "body-parser";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, ".env") });
 
-const SERVER_NAME = "generated-mcp-server";
+const SERVER_NAME = "dust-mcp-agent-server";
+const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+// Initialize session manager
+const sessionManager = new SessionManager({
+  uploadDir: UPLOAD_DIR,
+  maxFileSize: MAX_FILE_SIZE
+});
+
+// Validate required environment variables
+const REQUIRED_ENV = ['DUST_API_KEY', 'DUST_WORKSPACE_ID'];
+for (const envVar of REQUIRED_ENV) {
+  if (!process.env[envVar]) {
+    console.error(`[MCP Server] Error: Missing required environment variable ${envVar}`);
+    process.exit(1);
+  }
+}
 
 async function transformTools(tools) {
   return tools
@@ -38,15 +59,53 @@ async function transformTools(tools) {
 }
 
 async function setupServerHandlers(server, tools) {
+  // Add agent tools to the list of available tools
+  const allTools = [...tools, ...agentTools];
+  
+  // Helper to log tool calls
+  function logToolCall(toolName, args) {
+    const argsStr = JSON.stringify(args, (key, value) => 
+      key === 'apiKey' || key === 'DUST_API_KEY' ? '***' : value
+    );
+    console.error(`[MCP Server] Tool call: ${toolName} with args: ${argsStr}`);
+  }
+
+  // List available tools
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: await transformTools(tools),
+    tools: await transformTools(allTools),
   }));
 
+  // Handle tool execution
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const toolName = request.params.name;
-    const tool = tools.find((t) => t.definition.function.name === toolName);
+    const tool = allTools.find((t) => t.definition.function.name === toolName);
+    
     if (!tool) {
       throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${toolName}`);
+    }
+    
+    logToolCall(toolName, request.params.arguments);
+    
+    // Handle streaming responses
+    if (request.params.arguments.stream === true && tool.function.constructor.name === 'AsyncGeneratorFunction') {
+      return {
+        stream: true,
+        async *execute() {
+          try {
+            for await (const chunk of await tool.function(request.params.arguments)) {
+              yield {
+                content: [{
+                  type: 'text',
+                  text: JSON.stringify(chunk)
+                }]
+              };
+            }
+          } catch (error) {
+            console.error(`[MCP Server] Error in streaming response for ${toolName}:`, error);
+            throw new McpError(ErrorCode.InternalError, `Streaming error: ${error.message}`);
+          }
+        }
+      };
     }
     const args = request.params.arguments;
     const requiredParameters =
@@ -60,29 +119,66 @@ async function setupServerHandlers(server, tools) {
       }
     }
     try {
-      const result = await tool.function(args);
+      const result = await tool.function(request.params.arguments);
+      
+      // Handle streamable response
+      if (result && result.stream === true) {
+        return {
+          stream: true,
+          async *execute() {
+            try {
+              for await (const chunk of result.generator) {
+                yield {
+                  content: [{
+                    type: 'text',
+                    text: JSON.stringify(chunk)
+                  }]
+                };
+              }
+            } catch (error) {
+              console.error(`[MCP Server] Error in streaming response for ${toolName}:`, error);
+              throw new McpError(ErrorCode.InternalError, `Streaming error: ${error.message}`);
+            }
+          }
+        };
+      }
+      
+      // Regular response
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
+        content: [{
+          type: 'text',
+          text: JSON.stringify(result, null, 2)
+        }]
       };
     } catch (error) {
-      console.error("[Error] Failed to fetch data:", error);
+      console.error(`[MCP Server] Error in tool ${toolName}:`, error);
       throw new McpError(
         ErrorCode.InternalError,
-        `API error: ${error.message}`
+        `${toolName} error: ${error.message}`
       );
     }
   });
 }
 
 async function run() {
-  const args = process.argv.slice(2);
-  const isSSE = args.includes("--sse");
-  const tools = await discoverTools();
+  console.error('[MCP Server] Starting server...');
+  let tools = [];
+  let isSSE = false;
+  
+  try {
+    const args = process.argv.slice(2);
+    isSSE = args.includes("--sse");
+    
+    console.error('[MCP Server] Discovering tools...');
+    tools = await discoverTools();
+    console.error(`[MCP Server] Discovered ${tools.length} tools`);
+    
+    // Log available tool names for debugging
+    console.error('[MCP Server] Available tools:', tools.map(t => t.definition?.function?.name).filter(Boolean));
+  } catch (error) {
+    console.error('[MCP Server] Error during initialization:', error);
+    process.exit(1);
+  }
 
   if (isSSE) {
     const app = express();
@@ -132,21 +228,51 @@ async function run() {
 
     const port = process.env.PORT || 3001;
     app.listen(port, () => {
-      console.log(`[SSE Server] running on port ${port}`);
+      console.error(`[SSE Server] running on port ${port}`);
     });
   } else {
-    // stdio mode: single server instance
+    const tools = await discoverTools();
+    const transformedTools = await transformTools(tools);
+
+    // Create Express app for HTTP endpoints
+    const app = express();
+    
+    // Enable CORS for all routes
+    app.use(cors());
+    app.use(bodyParser.json({ limit: '10mb' }));
+    app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+    
+    // Health check endpoint
+    app.get('/health', (req, res) => {
+      res.status(200).json({ status: 'ok' });
+    });
+    
+    // File upload routes
+    const fileRouter = createFileRoutes({ sessionManager });
+    app.use('/api', fileRouter);
+    
+    // Create MCP server
     const server = new Server(
-      {
-        name: SERVER_NAME,
-        version: "0.1.0",
-      },
+      { name: SERVER_NAME, version: "1.0.0" },
       {
         capabilities: {
           tools: {},
         },
-      }
+      },
     );
+    
+    // Store server instance for cleanup
+    let httpServer;
+    
+    // Start HTTP server if not in stdio mode
+    if (process.env.NODE_ENV !== 'test') {
+      const PORT = process.env.PORT || 3001;
+      httpServer = app.listen(PORT, '0.0.0.0', () => {
+        console.error(`[${SERVER_NAME}] HTTP server running on port ${PORT}`);
+        console.error(`[${SERVER_NAME}] File upload endpoint: http://localhost:${PORT}/api/sessions/:sessionId/files`);
+      });
+    }
+
     server.onerror = (error) => console.error("[Error]", error);
     await setupServerHandlers(server, tools);
 
@@ -155,8 +281,66 @@ async function run() {
       process.exit(0);
     });
 
+    console.error('[MCP Server] Starting in stdio mode...');
     const transport = new StdioServerTransport();
-    await server.connect(transport);
+    
+    // Handle process signals for clean shutdown
+    process.on('SIGINT', async () => {
+      console.error('[MCP Server] Shutting down...');
+      await server.close();
+      process.exit(0);
+    });
+    
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (error) => {
+      console.error('[MCP Server] Uncaught exception:', error);
+      process.exit(1);
+    });
+    
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('[MCP Server] Unhandled rejection at:', promise, 'reason:', reason);
+      process.exit(1);
+    });
+    
+    console.error('[MCP Server] Connecting server to transport...');
+    try {
+      await server.connect(transport);
+      console.error('[MCP Server] Server connected and ready');
+      console.error('[MCP Server] Send a JSON-RPC message to interact with the server');
+      
+      // Keep the process alive by preventing Node.js from exiting
+      // This is important for STDIO transport to maintain the connection
+      const keepAlive = setInterval(() => {
+        // This keeps the event loop busy
+        if (process.stdout.writable) {
+          process.stdout.write('\0'); // Null byte to keep the connection alive
+        }
+      }, 30000); // Every 30 seconds
+      
+      // Clean up the interval on process exit
+      process.on('exit', () => {
+        clearInterval(keepAlive);
+      });
+      
+      // Log when the server is about to close
+      if (typeof server.on === 'function') {
+        server.on('close', () => {
+          console.error('[MCP Server] Server is shutting down...');
+          clearInterval(keepAlive);
+        });
+      } else {
+        // If server doesn't support 'on' method, use process exit handler
+        process.on('beforeExit', () => {
+          console.error('[MCP Server] Server is shutting down...');
+          clearInterval(keepAlive);
+        });
+      }
+      
+    } catch (error) {
+      console.error('[MCP Server] Failed to connect to transport:', error);
+      process.exit(1);
+    }
   }
 }
 

@@ -5,13 +5,29 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "list-tools": "node index.js tools"
+    "list-tools": "node index.js tools",
+    "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
+    "test:watch": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --watch",
+    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --coverage"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.9.0",
+    "body-parser": "^2.2.0",
     "commander": "^13.1.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "multer": "^2.0.1",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.7",
+    "@babel/preset-env": "^7.23.7",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "supertest": "^6.3.3"
   },
   "engines": {
     "node": ">=16.0.0"
