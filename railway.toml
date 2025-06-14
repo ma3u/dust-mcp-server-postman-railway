@@ -1,23 +1,12 @@
 [build]
 builder = "nixpacks"
+buildCommand = "npm run build"
 
 [deploy]
 startCommand = "node server.js"
 
-[build.install]
-command = "npm install"
-
-[build.buildCommand]
-command = "npm run build"
-
-[healthcheckPath]
+[healthcheck]
 path = "/health"
-
-[healthcheckTimeout]
 timeout = 30
-
-[healthcheckInterval]
 interval = 15
-
-[healthcheckMaxRetries]
 maxRetries = 5
