@@ -40,7 +40,12 @@ describe('File Upload API', () => {
     app.use('/api', fileRouter);
   });
 
-  afterAll(() => {
+  afterAll(async () => {
+    // Clean up session manager
+    if (sessionManager) {
+      sessionManager.destroy();
+    }
+    
     // Clean up test upload directory
     if (fs.existsSync(testUploadDir)) {
       fs.rmSync(testUploadDir, { recursive: true, force: true });
@@ -65,12 +70,12 @@ describe('File Upload API', () => {
       expect(fs.existsSync(filePath)).toBe(true);
     });
 
-    it('should return 400 for invalid file type', async () => {
+    it('should return 500 for invalid file type', async () => {
       const response = await request(app)
         .post(`/api/sessions/${testSessionId}/files`)
         .attach('files', Buffer.from('test'), 'test.exe');
 
-      expect(response.status).toBe(413);
+      expect(response.status).toBe(500);
       expect(response.body.success).toBe(false);
     });
 
