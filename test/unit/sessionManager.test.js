@@ -1,5 +1,4 @@
-import { jest } from '@jest/globals';
-import { SessionManager } from '../../lib/sessionManager.js';
+const { SessionManager } = require('../../lib/sessionManager.js');
 
 describe('SessionManager', () => {
   // Enable fake timers for all tests in this suite

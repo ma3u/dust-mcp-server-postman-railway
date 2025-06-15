@@ -1,9 +1,8 @@
 // Global test setup
-import { TextEncoder, TextDecoder } from 'util';
-import { jest } from '@jest/globals';
-import { WebSocketServer } from 'ws';
-import http from 'http';
-import { EventEmitter } from 'events';
+const { TextEncoder, TextDecoder } = require('util');
+const { WebSocketServer } = require('ws');
+const http = require('http');
+const { EventEmitter } = require('events');
 
 // Add TextEncoder and TextDecoder to global scope for testing
 // This is needed for some WebSocket and encoding/decoding operations

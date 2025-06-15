@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { StreamingHandler } from '../lib/streamingHandler.js';
 import { EventEmitter } from 'events';
+import { createMockSession, createMockSessionManager } from './testUtils.js';
 
 // Mock fetch and other globals
 global.fetch = jest.fn();
@@ -265,6 +266,11 @@ describe('StreamingHandler', () => {
       // Clean up
       await expect(streamPromise).rejects.toThrow();
     });
+
+    it('should return false if no active request exists', () => {
+      const wasCancelled = handler.cancelRequest('non-existent-session');
+      expect(wasCancelled).toBe(false);
+    });
   });
 
   describe('error handling', () => {
@@ -298,6 +304,141 @@ describe('StreamingHandler', () => {
           }
         })()
       ).rejects.toThrow('HTTP error! status: 429');
+    });
+
+    it('should handle network errors', async () => {
+      const networkError = new Error('Network error');
+      networkError.code = 'ENOTFOUND';
+      
+      global.fetch.mockRejectedValue(networkError);
+      
+      const errorSpy = jest.fn();
+      handler.on('error', errorSpy);
+      
+      await expect(
+        (async () => {
+          for await (const _ of handler.streamResponse(sessionId, 'test')) {
+            // No-op
+          }
+        })()
+      ).rejects.toThrow('Network error');
+      
+      // Should have retried the max number of times
+      expect(global.fetch).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
+    });
+
+    it('should handle aborted requests', async () => {
+      const abortError = new Error('The user aborted a request.');
+      abortError.name = 'AbortError';
+      
+      global.fetch.mockRejectedValue(abortError);
+      
+      await expect(
+        (async () => {
+          for await (const _ of handler.streamResponse(sessionId, 'test')) {
+            // No-op
+          }
+        })()
+      ).rejects.toThrow('The user aborted a request.');
+    });
+
+    it('should handle invalid response body', async () => {
+      const invalidResponse = {
+        ok: true,
+        body: null // No body
+      };
+      
+      global.fetch.mockResolvedValueOnce(invalidResponse);
+      
+      await expect(
+        (async () => {
+          for await (const _ of handler.streamResponse(sessionId, 'test')) {
+            // No-op
+          }
+        })()
+      ).rejects.toThrow('Response body is not readable');
+    });
+  });
+  
+  describe('session listeners', () => {
+    const sessionId = 'test-listeners';
+    const testMessage = { content: 'Test message' };
+    
+    it('should notify session listeners', async () => {
+      const mockListener = jest.fn();
+      const testSession = {
+        id: sessionId,
+        agentId: 'test-agent',
+        conversationId: null,
+        listeners: new Set([mockListener])
+      };
+      
+      sessionManager.getSession.mockReturnValue(testSession);
+      
+      mockReader.read
+        .mockResolvedValueOnce(mockChunk(testMessage))
+        .mockResolvedValueOnce(mockEnd());
+      
+      const chunks = [];
+      for await (const chunk of handler.streamResponse(sessionId, 'test')) {
+        chunks.push(chunk);
+      }
+      
+      expect(mockListener).toHaveBeenCalledWith(testMessage);
+    });
+    
+    it('should handle listener errors gracefully', async () => {
+      const errorSpy = jest.fn();
+      handler.on('error', errorSpy);
+      
+      const failingListener = jest.fn().mockImplementation(() => {
+        throw new Error('Listener error');
+      });
+      
+      const testSession = {
+        id: sessionId,
+        agentId: 'test-agent',
+        conversationId: null,
+        listeners: new Set([failingListener])
+      };
+      
+      sessionManager.getSession.mockReturnValue(testSession);
+      
+      mockReader.read
+        .mockResolvedValueOnce(mockChunk(testMessage))
+        .mockResolvedValueOnce(mockEnd());
+      
+      const chunks = [];
+      for await (const chunk of handler.streamResponse(sessionId, 'test')) {
+        chunks.push(chunk);
+      }
+      
+      expect(errorSpy).toHaveBeenCalledWith(expect.objectContaining({
+        error: expect.any(Error),
+        context: 'listener',
+        sessionId
+      }));
+    });
+  });
+  
+  describe('destroy', () => {
+    it('should clean up resources', () => {
+      const sessionId = 'test-cleanup';
+      const abortSpy = jest.spyOn(AbortController.prototype, 'abort');
+      
+      // Add an active request
+      mockReader.read.mockImplementation(() => new Promise(() => {}));
+      void handler.streamResponse(sessionId, 'test');
+      
+      // Destroy the handler
+      handler.destroy();
+      
+      // Should have aborted the active request
+      expect(abortSpy).toHaveBeenCalled();
+      
+      // Should have removed all listeners
+      expect(handler.listenerCount('error')).toBe(0);
+      expect(handler.listenerCount('retry')).toBe(0);
     });
   });
 });

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "default-chat-agent",
+    "name": "Default Chat Agent",
+    "description": "A general-purpose conversational agent."
+  },
+  {
+    "id": "postman-tool-executor-agent",
+    "name": "Postman Tool Executor Agent",
+    "description": "An agent specialized in executing Postman collection requests as tools, managed by this MCP server."
+  },
+  {
+    "id": "file-system-agent",
+    "name": "File System Agent",
+    "description": "An agent that can interact with the local file system (read, write, list files)."
+  }
+]
