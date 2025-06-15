@@ -1,4 +1,6 @@
 // Global test setup
+let originalConsoleError;
+let consoleErrorSpy;
 const { TextEncoder, TextDecoder } = require('util');
 const { WebSocketServer } = require('ws');
 const http = require('http');
@@ -139,6 +141,10 @@ class MockWebSocketClient {
 beforeAll(async () => {
   // Mock WebSocket implementation
   global.WebSocket = MockWebSocketClient;
+
+  // Store original console.error and set up a spy
+  originalConsoleError = console.error;
+  consoleErrorSpy = jest.fn(); // Initialize as a mock function
   
   // Mock process.nextTick for better test control
   global.process.nextTick = (callback) => {
@@ -216,7 +222,8 @@ afterAll(async () => {
 // Reset all mocks before each test
 beforeEach(() => {
   jest.clearAllMocks();
-  console.error = consoleErrorSpy;
+  consoleErrorSpy.mockClear(); // Clear spy before each test
+  console.error = consoleErrorSpy; // Assign the spy to console.error
   global.fetch.mockClear();
   
   // Reset any global test state

@@ -1,0 +1,15 @@
+{
+  "id": "3a492d78-470b-4efb-b4f7-18f3ee6f5286",
+  "workspaceId": "new-workspace",
+  "agentId": "new-agent",
+  "conversationId": null,
+  "lastActivity": 1600000000000,
+  "createdAt": 1600000000000,
+  "updatedAt": 1600000000000,
+  "listeners": {},
+  "files": [],
+  "metadata": {},
+  "data": {},
+  "activeRequests": 0,
+  "requestQueue": []
+}

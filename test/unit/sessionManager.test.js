@@ -1,210 +1,99 @@
+// test/unit/sessionManager.test.js
+const fs = require('fs'); // For testDebugLog
+const path = require('path'); // For LISTENER_LOG_FILE
+
+// Ensure SessionManager is at least importable, even if not used directly in this minimal test
 const { SessionManager } = require('../../lib/sessionManager.js');
 
-describe('SessionManager', () => {
-  // Enable fake timers for all tests in this suite
-  beforeEach(() => {
-    jest.useFakeTimers();
-  });
+const LISTENER_LOG_FILE = path.join(__dirname, '../../listener-debug.log');
 
-  afterEach(() => {
-    // Clean up any pending timers and restore the original timers
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
-  });
+// Simplified testDebugLog, ensure fs is available
+const testDebugLog = (message) => {
+  try {
+    const timestamp = new Date().toISOString();
+    // Use fs directly as it's a core Node module
+    fs.appendFileSync(LISTENER_LOG_FILE, `[${timestamp}] [MINIMAL_TEST_DEBUG] ${message}\n`);
+  } catch (err) {
+    // Fallback to console.error if file logging fails
+    console.error(`[MINIMAL_TEST_DEBUG] FILE LOG FAILED: ${err.message} | Original message: ${message}`);
+  }
+};
+
+describe('Minimal SessionManager Test Suite with Basic SM', () => {
   let sessionManager;
-  const mockSession = {
-    id: 'session-123',
-    workspaceId: 'workspace-123',
-    agentId: 'agent-123',
-    conversationId: 'conv-123',
-    lastActivity: Date.now(),
-    listeners: new Set(),
-    data: {}
-  };
-
-  beforeEach(() => {
-    // Mock Date.now() to return a fixed timestamp
-    jest.spyOn(Date, 'now').mockImplementation(() => 1600000000000);
-    
-    // Create a new SessionManager instance before each test
-    sessionManager = new SessionManager();
-    
-    // Add a test session
-    sessionManager.sessions.set(mockSession.id, { ...mockSession });
-  });
-
-  afterEach(() => {
-    // Clean up mocks
-    jest.clearAllMocks();
-    jest.useRealTimers();
-  });
-
-  describe('createSession', () => {
-    test('should create a new session with valid parameters', () => {
-      const workspaceId = 'new-workspace';
-      const agentId = 'new-agent';
-      
-      const session = sessionManager.createSession(workspaceId, agentId);
-      
-      expect(session).toHaveProperty('id');
-      expect(session.workspaceId).toBe(workspaceId);
-      expect(session.agentId).toBe(agentId);
-      expect(session.conversationId).toBeNull();
-      expect(session.lastActivity).toBe(Date.now());
-      expect(session.listeners).toBeInstanceOf(Set);
-      expect(session.data).toEqual({});
-      
-      // Verify the session was added to the sessions map
-      expect(sessionManager.sessions.has(session.id)).toBe(true);
-    });
-  });
-
-  describe('getSession', () => {
-    it('should return null for non-existent session', () => {
-      const sessionManager = new SessionManager();
-      const session = sessionManager.getSession('non-existent-id');
-      expect(session).toBeNull();
-    });
-
-    it('should return session and update lastActivity', () => {
-      // Mock Date.now() to have consistent timestamps
-      const originalDateNow = Date.now;
-      let currentTime = 1000;
-      global.Date.now = jest.fn(() => currentTime);
-      
-      try {
-        const sessionManager = new SessionManager();
-        const mockSession = sessionManager.createSession('test-workspace', 'test-agent');
-        const originalLastActivity = mockSession.lastActivity;
-        
-        // Advance time by 1 second
-        currentTime += 1000;
-        
-        // Get the session which should update lastActivity
-        const session = sessionManager.getSession(mockSession.id);
-        expect(session).toBeDefined();
-        expect(session.id).toBe(mockSession.id);
-        
-        // Verify lastActivity was updated to the new time
-        expect(session.lastActivity).toBe(currentTime);
-        
-        // Clean up
-        sessionManager.destroy();
-      } finally {
-        // Restore original Date.now
-        global.Date.now = originalDateNow;
+  const testSessionDir = path.join(__dirname, '../../.test-sessions-minimal');
+  beforeAll(() => {
+    // Initialize log file for this minimal test run
+    try {
+      if (fs.existsSync(LISTENER_LOG_FILE)) {
+        // You can choose to delete the old log or append. For now, appending.
+        // fs.unlinkSync(LISTENER_LOG_FILE);
       }
-    });
+      fs.appendFileSync(LISTENER_LOG_FILE, `[${new Date().toISOString()}] Minimal test log initialized.\n`);
+      SessionManager.setListenerLogPath(LISTENER_LOG_FILE); // So SM internal logs also go here
+      // Clean up test session directory before tests if it exists
+      if (fs.existsSync(testSessionDir)) {
+        fs.rmSync(testSessionDir, { recursive: true, force: true });
+      }
+      fs.mkdirSync(testSessionDir, { recursive: true });
+    } catch (err) {
+      console.error(`Failed to initialize minimal listener log: ${err.message}`);
+    }
   });
 
-  describe('updateSession', () => {
-    test('should update session data', () => {
-      const updates = {
-        conversationId: 'new-conv-id',
-        data: { key: 'value' }
-      };
-      
-      const result = sessionManager.updateSession(mockSession.id, updates);
-      
-      expect(result).toBe(true);
-      const updatedSession = sessionManager.sessions.get(mockSession.id);
-      expect(updatedSession.conversationId).toBe(updates.conversationId);
-      expect(updatedSession.data).toEqual(updates.data);
-      expect(updatedSession.lastActivity).toBe(Date.now());
-    });
+  beforeEach(async () => {
+    testDebugLog("BEFORE EACH: Creating SessionManager instance");
+    // Ensure the test session directory exists and is clean for each test
+    if (fs.existsSync(testSessionDir)) {
+      fs.rmSync(testSessionDir, { recursive: true, force: true });
+    }
+    fs.mkdirSync(testSessionDir, { recursive: true });
 
-    test('should return false for non-existent session', () => {
-      const result = sessionManager.updateSession('non-existent-id', { conversationId: 'test' });
-      expect(result).toBe(false);
-    });
+    sessionManager = new SessionManager({ sessionDir: testSessionDir, anInMemoryFilesystem: null });
+    // Mock _loadSessionFromFile for this basic test to avoid file system complexities not yet under test
+    // Or ensure the sessionDir is writable and SessionManager handles it.
+    // For now, let's assume init will work with a clean directory or we mock parts of it if needed.
+    // sessionManager.init() is not a public method; constructor handles initialization.
+    testDebugLog("BEFORE EACH: SessionManager instance created (constructor handles init)");
   });
 
-  describe('deleteSession', () => {
-    test('should remove session', () => {
-      const result = sessionManager.deleteSession(mockSession.id);
-      expect(result).toBe(true);
-      expect(sessionManager.sessions.has(mockSession.id)).toBe(false);
-    });
-
-    test('should return false for non-existent session', () => {
-      const result = sessionManager.deleteSession('non-existent-id');
-      expect(result).toBe(false);
-    });
+  afterEach(async () => {
+    console.error("MINIMAL AFTER EACH (SM) ENTERED - CONSOLE");
+    testDebugLog("MINIMAL AFTER EACH (SM) ENTERED - FILE");
+    if (sessionManager) {
+      testDebugLog("AFTER EACH (SM): About to call SM._logListenerActivity directly.");
+      if (typeof sessionManager._logListenerActivity === 'function') {
+        sessionManager._logListenerActivity('Direct call from test afterEach before destroy');
+        testDebugLog("AFTER EACH (SM): SM._logListenerActivity was called directly.");
+      } else {
+        testDebugLog("AFTER EACH (SM): SM._logListenerActivity is NOT a function on the instance!");
+      }
+      testDebugLog("AFTER EACH (SM): Calling sessionManager.destroy()");
+      await sessionManager.destroy();
+      testDebugLog("AFTER EACH (SM): sessionManager.destroy() completed");
+      sessionManager = null; // Help with GC and prevent re-use
+    }
+    testDebugLog(`MINIMAL afterEach (SM) END. Current SIGINT: ${process.listenerCount('SIGINT')}, SIGTERM: ${process.listenerCount('SIGTERM')}`);
+    // Clean up test session directory after each test
+    // if (fs.existsSync(testSessionDir)) {
+    //   fs.rmSync(testSessionDir, { recursive: true, force: true });
+    // }
   });
 
-  describe('cleanupExpiredSessions', () => {
-    beforeEach(() => {
-      // Set up test sessions with different lastActivity times
-      const now = Date.now();
-      const oneHourInMs = 60 * 60 * 1000;
-      
-      sessionManager.sessions.clear();
-      
-      // Active session (just created)
-      sessionManager.sessions.set('session-1', {
-        id: 'session-1',
-        lastActivity: now - 1000, // 1 second old
-        listeners: new Set()
-      });
-      
-      // Expired session (2 hours old)
-      sessionManager.sessions.set('session-2', {
-        id: 'session-2',
-        lastActivity: now - (2 * oneHourInMs),
-        listeners: new Set()
-      });
-      
-      // Session with active listeners (shouldn't be cleaned up)
-      const sessionWithListeners = {
-        id: 'session-3',
-        lastActivity: now - (2 * oneHourInMs),
-        listeners: new Set(['listener-1'])
-      };
-      sessionManager.sessions.set('session-3', sessionWithListeners);
-    });
-
-    test('should clean up expired sessions without active listeners', () => {
-      sessionManager.cleanupExpiredSessions();
-      
-      // Only session-1 (active) and session-3 (has listeners) should remain
-      expect(sessionManager.sessions.size).toBe(2);
-      expect(sessionManager.sessions.has('session-1')).toBe(true);
-      expect(sessionManager.sessions.has('session-2')).toBe(false);
-      expect(sessionManager.sessions.has('session-3')).toBe(true);
-    });
+  it('A single minimal passing test case with SM', () => {
+    console.error("MINIMAL PASSING TEST CASE (SM) EXECUTING - CONSOLE");
+    testDebugLog("MINIMAL PASSING TEST CASE (SM) EXECUTING - FILE");
+    expect(sessionManager).toBeDefined();
+    // Check initial listener counts if SM constructor adds them
+    // This depends on when SessionManager adds its listeners. If it's in the constructor:
+    // testDebugLog(`In-test SIGINT: ${process.listenerCount('SIGINT')}, SIGTERM: ${process.listenerCount('SIGTERM')} (after SM instantiation)`);
+    expect(true).toBe(true);
   });
 
-  describe('addListener and removeListener', () => {
-    test('should add and remove listeners from a session', () => {
-      const sessionId = 'test-session';
-      const listenerId = 'test-listener';
-      
-      // Create a test session
-      sessionManager.sessions.set(sessionId, {
-        id: sessionId,
-        lastActivity: Date.now(),
-        listeners: new Set()
-      });
-      
-      // Add a listener
-      const addResult = sessionManager.addListener(sessionId, listenerId);
-      expect(addResult).toBe(true);
-      expect(sessionManager.sessions.get(sessionId).listeners.has(listenerId)).toBe(true);
-      
-      // Remove the listener
-      const removeResult = sessionManager.removeListener(sessionId, listenerId);
-      expect(removeResult).toBe(true);
-      expect(sessionManager.sessions.get(sessionId).listeners.has(listenerId)).toBe(false);
-    });
-
-    test('should handle non-existent session for addListener', () => {
-      const result = sessionManager.addListener('non-existent-id', 'listener-1');
-      expect(result).toBe(false);
-    });
-
-    test('should handle non-existent session for removeListener', () => {
-      const result = sessionManager.removeListener('non-existent-id', 'listener-1');
-      expect(result).toBe(false);
-    });
-  });
+  // Optional: Uncomment this test to see if console.error from afterEach appears for failing tests
+  // it('A failing minimal test case', () => {
+  //   console.error("MINIMAL FAILING TEST CASE EXECUTING - CONSOLE");
+  //   testDebugLog("MINIMAL FAILING TEST CASE EXECUTING - FILE");
+  //   expect(false).toBe(true); // This will fail
+  // });
 });

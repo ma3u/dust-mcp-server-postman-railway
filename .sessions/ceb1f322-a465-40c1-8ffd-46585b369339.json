@@ -1,0 +1,17 @@
+{
+  "id": "ceb1f322-a465-40c1-8ffd-46585b369339",
+  "workspaceId": "workspace-123",
+  "agentId": "agent-123",
+  "conversationId": "new-conv-id",
+  "lastActivity": 1600000000000,
+  "createdAt": 1600000000000,
+  "updatedAt": 1600000000000,
+  "listeners": {},
+  "files": [],
+  "metadata": {},
+  "data": {
+    "key": "value"
+  },
+  "activeRequests": 0,
+  "requestQueue": []
+}

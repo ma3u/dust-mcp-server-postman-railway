@@ -201,28 +201,99 @@ async function run() {
       server.onerror = (error) => console.error("[Error]", error);
       await setupServerHandlers(server, tools);
 
+      let newSession;
+      try {
+        newSession = await sessionManager.createSession(); // Use the global sessionManager
+        res.setHeader('Mcp-Session-Id', newSession.id);
+        console.error(`[MCP Server] Session created: ${newSession.id}, Mcp-Session-Id header sent.`);
+      } catch (error) {
+        console.error(`[MCP Server] Error creating session:`, error);
+        if (!res.headersSent) {
+          res.status(500).send("Error initializing session");
+        }
+        return;
+      }
+
+      const mcpSessionId = newSession.id; // Our Mcp-Session-Id
+
       const transport = new SSEServerTransport("/messages", res);
-      transports[transport.sessionId] = transport;
-      servers[transport.sessionId] = server;
+      transports[mcpSessionId] = transport; // Key by our Mcp-Session-Id
+      servers[mcpSessionId] = server;       // Key by our Mcp-Session-Id
 
       res.on("close", async () => {
-        delete transports[transport.sessionId];
-        await server.close();
-        delete servers[transport.sessionId];
+        delete transports[mcpSessionId];
+        delete servers[mcpSessionId];
+        // Note: SessionManager's TTL will handle cleanup of mcpSessionId unless explicit deletion is added.
+        await server.close(); // Close the specific server instance for this session
+        console.error(`[MCP Server] SSE connection closed for Mcp-Session-Id: ${mcpSessionId}`);
       });
 
       await server.connect(transport);
     });
 
+    // MCP Message Handler for SSE
     app.post("/messages", async (req, res) => {
-      const sessionId = req.query.sessionId;
-      const transport = transports[sessionId];
-      const server = servers[sessionId];
+      const mcpSessionId = req.headers['mcp-session-id'];
+      if (!mcpSessionId) {
+        console.error('[MCP Server] /messages: Mcp-Session-Id header missing');
+        return res.status(400).send("Mcp-Session-Id header missing");
+      }
+
+      const appSession = await sessionManager.getSession(mcpSessionId);
+      if (!appSession) {
+        console.error(`[MCP Server] /messages: Session not found in SessionManager for Mcp-Session-Id: ${mcpSessionId}`);
+        return res.status(404).send("Session not found or expired");
+      }
+
+      const transport = transports[mcpSessionId];
+      const server = servers[mcpSessionId];
 
       if (transport && server) {
+        console.error(`[MCP Server] /messages: Handling POST for Mcp-Session-Id: ${mcpSessionId}`);
         await transport.handlePostMessage(req, res);
       } else {
-        res.status(400).send("No transport/server found for sessionId");
+        // This case should ideally not be hit if sessionManager found a session
+        // and our Mcp-Session-Id is the key for transports/servers map.
+        // Could indicate an inconsistency if Mcp-Session-Id exists in sessionManager but not in transports/servers map.
+        console.error(`[MCP Server] /messages: No transport/server found for Mcp-Session-Id: ${mcpSessionId}, though session exists in SessionManager.`);
+        res.status(500).send("Internal server error: transport/server mismatch");
+      }
+    });
+
+    // MCP Client-Initiated Session Termination for SSE
+    app.delete("/sse", async (req, res) => {
+      const mcpSessionId = req.headers['mcp-session-id'];
+      if (!mcpSessionId) {
+        console.error('[MCP Server] DELETE /sse: Mcp-Session-Id header missing');
+        return res.status(400).send("Mcp-Session-Id header missing");
+      }
+
+      try {
+        const sessionExists = await sessionManager.getSession(mcpSessionId);
+        if (!sessionExists) {
+          console.error(`[MCP Server] DELETE /sse: Session not found for Mcp-Session-Id: ${mcpSessionId}`);
+          return res.status(404).send("Session not found or already terminated");
+        }
+
+        await sessionManager.deleteSession(mcpSessionId);
+        // Also clean up transport and server instances associated with this session
+        const transport = transports[mcpSessionId];
+        if (transport) {
+          // SSEServerTransport doesn't have an explicit close/destroy method for the client-facing connection itself,
+          // but we should ensure its resources are freed.
+          // The actual SSE connection would be closed by the client or network, or res.end() if we send a response.
+          delete transports[mcpSessionId];
+        }
+        const serverInstance = servers[mcpSessionId];
+        if (serverInstance) {
+          await serverInstance.close(); // Close the MCP Server instance
+          delete servers[mcpSessionId];
+        }
+        console.error(`[MCP Server] DELETE /sse: Session terminated successfully for Mcp-Session-Id: ${mcpSessionId}`);
+        res.status(200).send("Session terminated");
+      } catch (error) {
+        console.error(`[MCP Server] DELETE /sse: Error terminating session ${mcpSessionId}:`, error);
+        res.status(500).send("Error terminating session");
       }
     });
 

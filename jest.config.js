@@ -28,7 +28,8 @@ module.exports = {
     '!**/jest.config.js'
   ],
   verbose: true,
-  testTimeout: 30000, // 30 seconds timeout for tests
+  testTimeout: 30000,
+  fakeTimers: { "enableGlobally": true }, // 30 seconds timeout for tests
   setupFilesAfterEnv: ['<rootDir>/test/setupTests.js'],
   testEnvironmentOptions: {
     url: 'http://localhost',
