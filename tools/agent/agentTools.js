@@ -5,16 +5,64 @@ import { StreamingHandler } from '../../lib/streamingHandler.js';
 const sessionManager = new SessionManager();
 const streamingHandler = new StreamingHandler(sessionManager);
 
+// Cache for agent configurations
+const agentConfigCache = {
+  data: null,
+  lastUpdated: 0,
+  ttl: 5 * 60 * 1000, // 5 minutes TTL
+
+  /**
+   * Check if the cache is still valid
+   * @returns {boolean} True if cache is valid, false otherwise
+   */
+  isValid() {
+    return this.data && (Date.now() - this.lastUpdated) < this.ttl;
+  },
+
+  /**
+   * Update the cache with new data
+   * @param {Object} data - The data to cache
+   */
+  update(data) {
+    this.data = data;
+    this.lastUpdated = Date.now();
+  },
+
+  /**
+   * Get the cached data
+   * @returns {Object|null} The cached data or null if invalid/expired
+   */
+  get() {
+    return this.isValid() ? this.data : null;
+  }
+};
+
 /**
  * List available agents in the workspace
  */
-async function listAgents() {
-  try {
-    const workspaceId = process.env.DUST_WORKSPACE_ID;
-    if (!workspaceId) {
-      throw new Error('DUST_WORKSPACE_ID environment variable not set');
-    }
+/**
+ * Fetches agent configurations from the API with caching
+ * @param {boolean} [forceRefresh=false] - If true, bypasses the cache
+ * @returns {Promise<Object>} Agent configurations
+ * @throws {Error} If the request fails or workspace is not configured
+ */
+async function fetchAgentConfigurations(forceRefresh = false) {
+  const workspaceId = process.env.DUST_WORKSPACE_ID;
+  if (!workspaceId) {
+    throw new Error('DUST_WORKSPACE_ID environment variable not set');
+  }
 
+  // Return cached data if valid and not forcing refresh
+  if (!forceRefresh) {
+    const cachedData = agentConfigCache.get();
+    if (cachedData) {
+      console.error('[fetchAgentConfigurations] Using cached agent configurations');
+      return cachedData;
+    }
+  }
+
+  try {
+    console.error(`[fetchAgentConfigurations] Fetching fresh agent configurations for workspace ${workspaceId}`);
     const response = await fetch(
       `https://dust.tt/api/v1/w/${workspaceId}/assistant/agent_configurations`,
       {
@@ -27,17 +75,46 @@ async function listAgents() {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || 'Failed to fetch agents');
+      throw new Error(error.message || `HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
+    
+    // Update cache with fresh data
+    agentConfigCache.update(data);
+    
+    return data;
+  } catch (error) {
+    console.error('[fetchAgentConfigurations] Error:', error);
+    // If we have stale cache and there's an error, return the stale data
+    const staleData = agentConfigCache.data;
+    if (staleData) {
+      console.error('[fetchAgentConfigurations] Using stale cache due to error');
+      return staleData;
+    }
+    throw new Error(`Failed to fetch agent configurations: ${error.message}`);
+  }
+}
+
+/**
+ * Lists all available agents in the workspace
+ * @param {Object} [options] - Options
+ * @param {boolean} [options.forceRefresh=false] - If true, bypasses the cache
+ * @returns {Promise<Object>} Object containing the list of agents
+ */
+async function listAgents({ forceRefresh = false } = {}) {
+  try {
+    const data = await fetchAgentConfigurations(forceRefresh);
+    
     return {
       agents: data.agentConfigurations.map(agent => ({
         id: agent.sId,
         name: agent.name,
         description: agent.description,
         version: agent.version,
-        status: agent.status
+        status: agent.status,
+        model: agent.model?.providerId || 'unknown',
+        createdAt: agent.createdAt
       }))
     };
   } catch (error) {

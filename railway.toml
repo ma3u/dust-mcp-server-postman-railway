@@ -1,12 +1,44 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm run build"
+buildCommand = "npm install && npm run build"
 
 [deploy]
 startCommand = "node server.js"
 
+[deploy.volumes]
+[deploy.volumes.sessions]
+mount_path = "/app/.sessions"
+[deploy.volumes.uploads]
+mount_path = "/app/uploads"
+
 [healthcheck]
 path = "/health"
-timeout = 30
-interval = 15
-maxRetries = 5
+timeout = 10
+interval = 30
+maxRetries = 3
+initial_delay = 10
+
+[deploy.service]
+instances = 1
+
+[deploy.service.autoscaling]
+min = 1
+max = 3
+target_cpu = 70
+target_memory = 80
+
+[deploy.service.env]
+NODE_ENV = "production"
+PORT = "3000"
+LOG_LEVEL = "info"
+
+[deploy.service.checks]
+http = "/health"
+type = "http"
+interval = "30s"
+timeout = "10s"
+
+# Required environment variables (must be set in Railway dashboard)
+# DUST_API_KEY = ""
+# DUST_WORKSPACE_ID = ""
+# SESSION_SECRET = ""

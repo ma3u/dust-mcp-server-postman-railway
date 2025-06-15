@@ -1,39 +1,101 @@
 {
-  "name": "postman-mcp-generator-mcp",
+  "name": "dust-mcp-server",
   "version": "1.0.0",
-  "description": "A simple MCP server with packaged tools",
-  "main": "index.js",
-  "type": "module",
+  "description": "Dust MCP Server with advanced agent conversation features",
+  "main": "dist/index.js",
+  "type": "commonjs",
   "scripts": {
-    "list-tools": "node index.js tools",
-    "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
-    "test:watch": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --watch",
-    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest --coverage"
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "test": "jest --detectOpenHandles --runInBand --forceExit",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "prepare": "husky install"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.9.0",
     "body-parser": "^2.2.0",
-    "commander": "^13.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
+    "module-alias": "^2.2.3",
     "multer": "^2.0.1",
+    "node-cache": "^5.1.2",
+    "reflect-metadata": "^0.2.1",
     "uuid": "^11.1.0",
+    "winston": "^3.11.0",
     "ws": "^8.18.2"
   },
   "devDependencies": {
     "@babel/core": "^7.23.7",
     "@babel/preset-env": "^7.23.7",
+    "@babel/preset-typescript": "^7.23.3",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.5",
+    "@types/supertest": "^6.0.2",
+    "@types/uuid": "^9.0.7",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
     "babel-jest": "^29.7.0",
-    "fetch-mock-jest": "^1.5.1",
+    "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.2",
+    "husky": "^8.0.3",
     "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
-    "node-fetch": "^2.7.0",
-    "supertest": "^6.3.3"
+    "jest-mock-extended": "^3.0.5",
+    "node-abort-controller": "^3.1.1",
+    "lint-staged": "^15.1.0",
+    "prettier": "^3.1.1",
+    "supertest": "^6.3.3",
+    "ts-jest": "^29.1.1",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.2"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   },
-  "author": "Postman, Inc.",
-  "license": "MIT"
+  "author": "Your Name",
+  "license": "MIT",
+  "_moduleAliases": {
+    "@": "./dist"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/test/**/*.test.js",
+      "**/test/**/*.test.ts"
+    ],
+    "transform": {
+      "^.+\\.(js|ts)$": "babel-jest"
+    },
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    },
+    "collectCoverageFrom": [
+      "lib/**/*.js",
+      "!**/node_modules/**",
+      "!**/test/**"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 85,
+        "lines": 90,
+        "statements": 90
+      }
+    },
+    "setupFilesAfterEnv": ["<rootDir>/test/setupTests.js"],
+    "testTimeout": 30000,
+    "detectOpenHandles": true,
+    "forceExit": true
+  }
 }

@@ -3,23 +3,40 @@ import { TextEncoder, TextDecoder } from 'util';
 import { jest } from '@jest/globals';
 import { WebSocketServer } from 'ws';
 import http from 'http';
+import { EventEmitter } from 'events';
 
 // Add TextEncoder and TextDecoder to global scope for testing
 // This is needed for some WebSocket and encoding/decoding operations
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
 
-// Mock console.error to track errors in tests
-const originalConsoleError = console.error;
-const consoleErrorSpy = jest.fn((...args) => {
-  originalConsoleError(...args);
-});
+// Mock console methods to track logs in tests
+const originalConsole = {
+  error: console.error,
+  log: console.log,
+  warn: console.warn,
+  debug: console.debug,
+};
 
-// Mock fetch for HTTP requests
-global.fetch = jest.fn().mockResolvedValue({
-  ok: true,
-  json: async () => ({}),
-  text: async () => ''
+// Create spies for all console methods
+global.console = {
+  ...originalConsole,
+  error: jest.fn(originalConsole.error),
+  log: jest.fn(originalConsole.log),
+  warn: jest.fn(originalConsole.warn),
+  debug: jest.fn(originalConsole.debug),
+};
+
+// Mock fetch for HTTP requests with better defaults
+global.fetch = jest.fn().mockImplementation((url, options = {}) => {
+  // Log the fetch call for debugging
+  console.debug(`[fetch] ${options.method || 'GET'} ${url}`);
+  
+  return Promise.resolve({
+    ok: true,
+    json: async () => ({}),
+    text: async () => ''
+  });
 });
 
 // WebSocket server for testing
@@ -123,6 +140,43 @@ class MockWebSocketClient {
 beforeAll(async () => {
   // Mock WebSocket implementation
   global.WebSocket = MockWebSocketClient;
+  
+  // Mock process.nextTick for better test control
+  global.process.nextTick = (callback) => {
+    return setImmediate(callback);
+  };
+  
+  // Mock AbortController if not available
+  if (!global.AbortController) {
+    class MockAbortSignal extends EventEmitter {
+      constructor() {
+        super();
+        this.aborted = false;
+        this.reason = undefined;
+      }
+      
+      throwIfAborted() {
+        if (this.aborted) {
+          const error = new Error('The operation was aborted');
+          error.name = 'AbortError';
+          throw error;
+        }
+      }
+    }
+    
+    global.AbortController = class {
+      constructor() {
+        this.signal = new MockAbortSignal();
+      }
+      
+      abort(reason) {
+        if (this.signal.aborted) return;
+        this.signal.aborted = true;
+        this.signal.reason = reason || new Error('Aborted');
+        this.signal.emit('abort', { type: 'abort' });
+      }
+    };
+  }
   
   // Start a mock HTTP server for WebSocket connections
   httpServer = http.createServer();
