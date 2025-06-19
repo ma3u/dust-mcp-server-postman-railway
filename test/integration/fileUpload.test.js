@@ -6,9 +6,6 @@ const fs = require('fs');
 const { SessionManager } = require('../../lib/sessionManager');
 const { createFileRoutes } = require('../../routes/fileRoutes');
 
-const __filename = module.filename;
-const __dirname = path.dirname(__filename);
-
 describe('File Upload API', () => {
   let app;
   let sessionManager;

@@ -1,7 +1,6 @@
-import { jest } from '@jest/globals';
-import AgentService from '../../lib/agent/AgentService.js';
-import { SessionManager } from '../../lib/sessionManager.js';
-import { ConversationManager } from '../../lib/conversation/ConversationManager.js';
+const AgentService = require('../../lib/agent/AgentService.js');
+const { SessionManager } = require('../../lib/sessionManager.js');
+const { ConversationManager } = require('../../lib/conversation/ConversationManager.js');
 
 // Mock fetch
 global.fetch = jest.fn();

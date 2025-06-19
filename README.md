@@ -1,102 +1,321 @@
-# Postman MCP Generator
+# Dust MCP Server
 
-Welcome to your generated MCP server! 🚀
+🚀 A TypeScript-based MCP (Model Context Protocol) Server with advanced agent conversation features.
 
-**GitHub Repository:** [https://github.com/ma3u/dust-mcp-server-postman-railway](https://github.com/ma3u/dust-mcp-server-postman-railway) This project was created with the [Postman MCP Generator](https://postman.com/explore/mcp-generator), configured to [Model Context Provider (MCP)](https://modelcontextprotocol.io/introduction) Server output mode. It provides you with:
+**GitHub Repository:** [dust-mcp-server-postman-railway](https://github.com/ma3u/dust-mcp-server-postman-railway)
 
-- ✅ An MCP-compatible server (`mcpServer.js`)
-- ✅ Automatically generated JavaScript tools for each selected Postman API request
+## Table of Contents
 
-Let's set things up!
+- [User Manual](#user-manual)
+  - [Features](#features)
+  - [Getting Started](#getting-started)
+  - [Quick Start](#quick-start)
+  - [Configuration](#configuration)
+  - [Troubleshooting](#troubleshooting)
+- [Developer Manual](#developer-manual)
+  - [Architecture](#architecture)
+  - [Agent Conversation Flow](#agent-conversation-flow)
+  - [API Documentation](#api-documentation)
+  - [Development Setup](#development-setup)
+  - [Testing](#testing)
+  - [Deployment](#deployment)
 
-## 🚦 Getting Started
+## User Manual
+
+### Features
+
+- ✅ TypeScript-powered MCP server
+- 🏗️ Modern ES2022+ JavaScript features
+- 🔍 Built-in API documentation
+- 🧪 Comprehensive test suite with Jest
+- 🛠️ Developer-friendly tooling
+- 🔄 Hot-reloading development server
+- 📦 Module aliases for clean imports
+- 🔒 Environment-based configuration
+- 🧩 Extensible architecture
+
+## 🚀 Getting Started
 
 ### ⚙️ Prerequisites
 
-Before starting, please ensure you have:
+Before you begin, ensure you have the following installed:
 
-- [Node.js (v18+ required, v20+ recommended)](https://nodejs.org/)
-- [npm](https://www.npmjs.com/) (included with Node)
+- [Node.js](https://nodejs.org/) (v18+ required, v20+ recommended)
+- [npm](https://www.npmjs.com/) (included with Node.js)
+- [TypeScript](https://www.typescriptlang.org/) (included as a dev dependency)
+- [Git](https://git-scm.com/) (for version control)
 
-Warning: if you run with a lower version of Node, `fetch` won't be present. Tools use `fetch` to make HTTP calls. To work around this, you can modify the tools to use `node-fetch` instead. Make sure that `node-fetch` is installed as a dependency and then import it as `fetch` into each tool file.
+### 🛠️ Installation
 
-### 📥 Installation & Setup
+1. **Clone the repository**
 
-**1. Install dependencies**
+   ```bash
+   git clone https://github.com/ma3u/dust-mcp-server-postman-railway.git
+   cd dust-mcp-server-postman-railway
+   ```
 
-Run from your project's root directory:
+2. **Install dependencies**
 
-```sh
-npm install
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+
+   Create a `.env` file in the root directory with the following variables:
+
+   ```env
+   PORT=3000
+   NODE_ENV=development
+   DEFAULT_WORKSPACE_ID=default
+   WORKSPACE_DEFAULT_API_KEY=your_api_key_here
+   WORKSPACE_DEFAULT_NAME=Default Workspace
+   ```
+
+### 🏗️ Development
+
+1. **Start the development server**
+
+   ```bash
+   npm run dev
+   ```
+
+   This will start the server with hot-reloading enabled.
+
+2. **Build for production**
+
+   ```bash
+   npm run build
+   npm start
+   ```
+
+3. **Run tests**
+
+   ```bash
+   npm test        # Run all tests
+   npm run test:watch  # Run tests in watch mode
+   npm run test:coverage  # Generate test coverage report
+   ```
+
+4. **Linting and Formatting**
+
+   ```bash
+   npm run lint     # Check for linting errors
+   npm run lint:fix # Automatically fix linting issues
+   npm run format   # Format code using Prettier
+   ```
+
+## Developer Manual
+
+### Architecture
+[Architecture overview]
+
+### Agent Conversation Flow
+
+The following diagram illustrates the conversation flow between MCP Client, MCP Server, and Dust with session management:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant MCPClient as MCP Client
+    participant MCPServer as MCP Server
+    participant SessionMgr as Session Manager
+    participant ConvMgr as Conversation Manager
+    participant Dust as Dust Service
+
+    %% Session Initialization
+    User->>MCPClient: Start New Session
+    MCPClient->>MCPServer: POST /api/sessions
+    MCPServer->>SessionMgr: createSession()
+    SessionMgr-->>MCPServer: {sessionId, status: 'active'}
+    MCPServer->>ConvMgr: new Conversation(sessionId)
+    ConvMgr-->>MCPServer: {conversationId, state: 'initializing'}
+    MCPServer-->>MCPClient: {sessionId, conversationId, status: 'active'}
+    MCPClient-->>User: Session Ready
+
+    %% Message Flow
+    loop While Session Active
+        User->>MCPClient: Send Message
+        MCPClient->>MCPServer: POST /api/conversations/{conversationId}/messages
+        MCPServer->>ConvMgr: processMessage(message)
+        alt Has Files
+            ConvMgr->>FileUploadHandler: handleUpload(files)
+            FileUploadHandler-->>ConvMgr: {fileIds, paths}
+        end
+        ConvMgr->>Dust: forwardMessage(conversationId, message, files)
+        Dust-->>ConvMgr: {response, metadata}
+        ConvMgr->>ConversationHistory: addMessage(message, response)
+        MCPServer-->>MCPClient: {response, state, metadata}
+        MCPClient-->>User: Display Response
+        
+        %% Timeout Handling
+        alt Idle Timeout Reached
+            ConvMgr->>ConvMgr: handleIdleTimeout()
+            ConvMgr->>SessionMgr: updateSession(sessionId, {state: 'idle'})
+            SessionMgr-->>ConvMgr: {status: 'updated'}
+            ConvMgr-->>MCPServer: {event: 'stateChange', state: 'idle'}
+            MCPServer-->>MCPClient: {event: 'sessionIdle'}
+        end
+    end
+
+    %% Session Termination
+    User->>MCPClient: End Session
+    MCPClient->>MCPServer: DELETE /api/sessions/{sessionId}
+    MCPServer->>SessionMgr: deleteSession(sessionId)
+    SessionMgr->>ConvMgr: destroy()
+    ConvMgr->>ConversationHistory: clear()
+    ConvMgr-->>SessionMgr: {status: 'destroyed'}
+    SessionMgr-->>MCPServer: {status: 'deleted'}
+    MCPServer-->>MCPClient: {status: 'session_ended'}
+    MCPClient-->>User: Session Ended
 ```
 
-## 🚀 Starting the MCP Server
+### API Documentation
 
-To start the MCP server, run the following command from your project's root directory:
+The following API endpoints are available in the application:
 
-```sh
-node mcpServer.js
+### Health Check
+
+```http
+GET /health
 ```
 
-You should see output similar to:
+Check if the server is running.
 
-```plaintext
-[MCP Server] Starting server...
-[MCP Server] Discovering tools...
-[MCP Server] Discovered 18 tools
-[MCP Server] Available tools: [
-  'list_workspace_vaults',
-  'list_assistants',
-  'list_data_source_views',
-  'get_conversation_events',
-  'get_data_sources',
-  'search_assistants_by_name',
-  'get_conversation',
-  'retrieve_document',
-  'get_app_run',
-  'get_events_for_message',
-  'upsert_document',
-  'get_documents',
-  'create_conversation',
-  'create_message',
-  'create_content_fragment',
-  'create_app_run',
-  'search_data_source',
-  'search_data_source_view'
-]
-[MCP Server] Starting in stdio mode...
-[MCP Server] Connecting server to transport...
-[MCP Server] Server connected and ready
-[MCP Server] Send a JSON-RPC message to interact with the server
+**Response:**
+
+```json
+{
+  "status": "ok"
+}
 ```
 
-## 🔍 Testing with JSON-RPC
+### Workspace Agent Configurations
 
-Once the server is running, you can send it JSON-RPC requests. Here's how to test it using `curl`:
-
-1. Open a new terminal window
-2. Send a JSON-RPC request to list available tools:
-
-```sh
-echo '{"jsonrpc": "2.0", "id": 1, "method": "mcp_discover", "params": {}}' | nc localhost 3000
+```http
+GET /api/workspaces/:workspaceId/agents
 ```
 
-Or to call a specific tool (example with `list_assistants`):
+Get all agent configurations for a workspace.
 
-```sh
-echo '{
-  "jsonrpc": "2.0",
-  "id": 2,
-  "method": "list_assistants",
-  "params": {}
-}' | nc localhost 3000
+**Parameters:**
+
+- `workspaceId` (path, required): The ID of the workspace
+- `forceRefresh` (query, optional): Force refresh the agent configurations (true/false)
+
+**Response:**
+
+```json
+{
+  "agents": [
+    {
+      "id": "agent1",
+      "name": "Agent One",
+      "description": "First agent",
+      "config": {}
+    }
+  ]
+}
 ```
 
-Note: Make sure you have `netcat` (`nc`) installed. If not, you can install it using:
-- On macOS: `brew install netcat`
-- On Ubuntu/Debian: `sudo apt-get install netcat`
+### Get Specific Agent
 
-### 🔐 Set tool environment variables
+```http
+GET /api/workspaces/:workspaceId/agents/:agentId
+```
+
+Get configuration for a specific agent.
+
+**Parameters:**
+
+- `workspaceId` (path, required): The ID of the workspace
+- `agentId` (path, required): The ID of the agent
+
+**Response:**
+
+```json
+{
+  "id": "agent1",
+  "name": "Agent One",
+  "description": "First agent",
+  "config": {}
+}
+```
+
+## 🛠 Environment Variables
+
+The application uses the following environment variables:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PORT` | No | `3000` | Port to run the server on |
+| `NODE_ENV` | No | `development` | Application environment |
+| `DEFAULT_WORKSPACE_ID` | No | `default` | Default workspace ID |
+| `WORKSPACE_<ID>_API_KEY` | Yes | - | API key for the workspace |
+| `WORKSPACE_<ID>_NAME` | No | Workspace ID | Display name for the workspace |
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with TypeScript and Node.js
+- Uses Express for the web server
+- Implements the Model Context Protocol (MCP) specification
+
+## 📡 JSON-RPC Interface
+
+The server supports the Model Context Protocol (MCP) via JSON-RPC 2.0 over HTTP.
+
+### Discovering Available Tools
+
+To list all available tools, send a `mcp_discover` request:
+
+```bash
+curl -X POST http://localhost:3000 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "mcp_discover",
+    "params": {}
+  }'
+```
+
+### Calling a Tool
+
+To call a specific tool, such as `list_assistants`:
+
+```bash
+curl -X POST http://localhost:3000 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "list_assistants",
+    "params": {}
+  }'
+```
+
+### Prerequisites
+
+Ensure you have `curl` installed. For testing with `netcat` (`nc`), install it using:
+
+- **macOS**: `brew install netcat`
+- **Ubuntu/Debian**: `sudo apt-get install netcat`
+
+## 🔐 Tool Environment Variables
 
 This project uses a `.env` file to manage environment-specific variables, such as API keys. To get started:
 
@@ -125,23 +344,23 @@ const workspaceId = process.env.DUST_WORKSPACE_ID;
 
 **Note:** The generated tools will need to be configured to use these specific environment variables (`DUST_API_KEY`, `DUST_WORKSPACE_ID`, `DUST_AGENT_ID`). If the tools were generated for a different API or expect different environment variable names, you will need to manually update the JavaScript files in the `tools/` directory to use these variables correctly for authentication and API calls.
 
-## 🌐 Testing the MCP Server with Postman
+## Testing with Postman
 
 Postman provides a user-friendly interface to test your MCP server. Follow these steps to get started:
 
-### Prerequisites
+### Prerequisites for Postman
 
 - Install the latest [Postman Desktop Application](https://www.postman.com/downloads/)
 - Node.js v18+ installed
 - Your MCP server project dependencies installed (`npm install`)
 
-### Step 1: Create a New MCP Request
+## Creating a New MCP Request
 
 1. Open Postman
-2. Click "New" > "MCP Request"
-3. In the new tab, you'll see the MCP request configuration
+1. Click "New" > "MCP Request"
+1. In the new tab, you'll see the MCP request configuration
 
-### Step 2: Configure the MCP Server
+## Configuring the MCP Server
 
 1. Set the request type to `STDIO`
 2. In the command field, enter the full path to Node.js followed by the full path to `mcpServer.js`:
@@ -152,22 +371,22 @@ Postman provides a user-friendly interface to test your MCP server. Follow these
 
    To find these paths on your system:
 
-   ```sh
-   # Get Node.js path
-   which node
+   ```bash
+# Get Node.js path
+which node
    
-   # Get absolute path to mcpServer.js (run from your project directory)
-   pwd
-   # Then append "/mcpServer.js" to the output
-   ```
+# Get absolute path to mcpServer.js (run from your project directory)
+pwd
+# Then append "/mcpServer.js" to the output
+```
 
-### Step 3: Start the Server
+## Starting the Server
 
 1. Click the "Connect" button in Postman
 2. You should see the server start up in the terminal at the bottom of the screen
 3. Once connected, you'll see a list of available tools in the response section
 
-### Step 4: Test a Tool
+## Testing Tools
 
 1. In the request body, enter a JSON-RPC request. For example, to list assistants:
 
@@ -183,7 +402,7 @@ Postman provides a user-friendly interface to test your MCP server. Follow these
 2. Click "Send" to execute the request
 3. View the response in the lower panel
 
-### Available Tools
+## Available Tools
 
 You can call any of the following tools directly by name in the `method` field:
 
@@ -206,9 +425,9 @@ You can call any of the following tools directly by name in the `method` field:
 - `search_data_source` - Search within a data source
 - `search_data_source_view` - Search within a data source view
 
-### Troubleshooting
+## Troubleshooting
 
-#### Common Issues and Solutions
+### Common Issues and Solutions
 
 1. **Server Not Starting**
    - Verify Node.js is installed and in your PATH
@@ -235,7 +454,7 @@ You can call any of the following tools directly by name in the `method` field:
    - Look for error messages or stack traces
    - The server logs all incoming requests and errors
 
-#### Restarting the Server
+### Restarting the Server
 
 If you encounter issues, try these steps:
 
@@ -244,7 +463,7 @@ If you encounter issues, try these steps:
 3. Click "Connect" to restart the server
 4. Try your request again
 
-#### Node Version Issues
+### Node Version Issues
 
 - Make sure you're using Node.js v18 or higher
 - You can specify the full path to a specific Node.js version if needed
@@ -253,12 +472,12 @@ If you encounter issues, try these steps:
   nvm use 18  # or your preferred version
   ```
 
-#### Tool Execution Errors
+### Tool Execution Errors
 
 - Check the Postman console for detailed error messages
 - Verify that all required parameters are included in your request
 
-### Example: Listing Data Sources
+## Example: Listing Data Sources
 
 Here's how to list all data sources:
 
@@ -271,7 +490,7 @@ Here's how to list all data sources:
 }
 ```
 
-### Next Steps
+## Next Steps
 
 Once you've verified the server works in Postman, you can integrate it with other MCP clients like Claude Desktop.
 

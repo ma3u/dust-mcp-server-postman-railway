@@ -1,4 +1,4 @@
-export const toolPaths = [
+const toolPaths = [
   'dust/dust-api-documentation/list-workspace-vaults.js',
   'dust/dust-api-documentation/list-assistants.js',
   'dust/dust-api-documentation/list-data-source-views.js',
@@ -18,3 +18,5 @@ export const toolPaths = [
   'dust/dust-api-documentation/search-the-data-source.js',
   'dust/dust-api-documentation/search-the-data-source-view.js'
 ];
+
+module.exports = { toolPaths };

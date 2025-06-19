@@ -1,5 +1,5 @@
-import { SessionManager } from '../../lib/sessionManager.js';
-import { StreamingHandler } from '../../lib/streamingHandler.js';
+const { SessionManager } = require('../../lib/sessionManager.js');
+const { StreamingHandler } = require('../../lib/streamingHandler.js');
 
 // Initialize session manager and streaming handler
 const sessionManager = new SessionManager();
@@ -223,7 +223,7 @@ async function sendMessage({ sessionId, message, stream = false }) {
 }
 
 // Export tool definitions
-export const agentTools = [
+const agentTools = [
   {
     function: listAgents,
     definition: {
@@ -301,3 +301,5 @@ export const agentTools = [
     }
   }
 ];
+
+module.exports = { agentTools };

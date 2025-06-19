@@ -1,6 +1,6 @@
-import { jest } from '@jest/globals';
-import { WorkspaceValidator } from '../../lib/validation/workspaceValidator.js';
-import fetch from 'node-fetch';
+const { jest } = require('@jest/globals');
+const { WorkspaceValidator } = require('../../lib/validation/workspaceValidator.js');
+const fetch = require('node-fetch');
 
 // Mock node-fetch
 jest.mock('node-fetch');

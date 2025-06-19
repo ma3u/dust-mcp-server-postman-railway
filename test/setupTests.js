@@ -1,4 +1,7 @@
 // Global test setup
+const fs = require('fs');
+const path = require('path');
+
 let originalConsoleError;
 let consoleErrorSpy;
 const { TextEncoder, TextDecoder } = require('util');
@@ -139,6 +142,21 @@ class MockWebSocketClient {
 
 // Setup test environment
 beforeAll(async () => {
+  // Clean up the default .sessions directory before all tests
+  try {
+    const projectRoot = path.resolve(__dirname, '../..'); // test/setupTests.js is in test/
+    const defaultSessionsDir = path.join(projectRoot, '.sessions');
+    if (fs.existsSync(defaultSessionsDir)) {
+      // Using originalConsole.error here to avoid Jest spy interference during critical setup
+      originalConsole.error(`[Jest Setup] Cleaning up existing default session directory: ${defaultSessionsDir}`);
+      fs.rmSync(defaultSessionsDir, { recursive: true, force: true });
+      originalConsole.error(`[Jest Setup] Default session directory cleaned.`);
+    }
+  } catch (err) {
+    originalConsole.error(`[Jest Setup] Error cleaning up default session directory: ${err.message}`);
+    // Optionally, re-throw or process.exit(1) if this cleanup is critical
+  }
+
   // Mock WebSocket implementation
   global.WebSocket = MockWebSocketClient;
 

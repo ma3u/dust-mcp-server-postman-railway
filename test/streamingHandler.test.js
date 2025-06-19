@@ -1,25 +1,15 @@
-import { jest } from '@jest/globals';
-import { StreamingHandler } from '../lib/streamingHandler.js';
-import { EventEmitter } from 'events';
-import { createMockSession, createMockSessionManager } from './testUtils.js';
+// Mock node-fetch at the very top
+const mockFetch = jest.fn();
+jest.mock('node-fetch', () => mockFetch);
 
-// Mock fetch and other globals
-global.fetch = jest.fn();
+// Mock node-abort-controller at the very top
+jest.mock('node-abort-controller');
 
-// Mock AbortController
-class MockAbortController {
-  constructor() {
-    this.signal = { aborted: false };
-    this.abort = jest.fn(() => {
-      this.signal.aborted = true;
-      if (this.signal.onabort) {
-        this.signal.onabort();
-      }
-    });
-  }
-}
+const { StreamingHandler } = require('../lib/streamingHandler.js');
+const { EventEmitter } = require('events');
+const { createMockSession, createMockSessionManager } = require('./testUtils.js');
 
-global.AbortController = MockAbortController;
+// global.AbortController = MockAbortController; // Replaced by module mock
 
 // Mock TextDecoder
 class MockTextDecoder {
@@ -34,6 +24,17 @@ class MockTextDecoder {
 global.TextDecoder = MockTextDecoder;
 
 describe('StreamingHandler', () => {
+  // Helper functions for creating mock stream chunks
+  const mockChunk = (data) => {
+    const json = JSON.stringify(data);
+    const chunk = `data: ${json}\n`;
+    return { value: new TextEncoder().encode(chunk), done: false };
+  };
+
+  const mockEnd = () => ({
+    value: undefined,
+    done: true
+  });
   let sessionManager;
   let handler;
   let mockResponse;
@@ -65,7 +66,7 @@ describe('StreamingHandler', () => {
     };
 
     // Mock fetch implementation
-    global.fetch.mockResolvedValue(mockResponse);
+    mockFetch.mockResolvedValue(mockResponse);
 
     // Create handler instance
     handler = new StreamingHandler(sessionManager, {
@@ -100,6 +101,8 @@ describe('StreamingHandler', () => {
     const sessionId = 'test-session';
     const message = 'Test message';
     const conversationId = 'test-conversation';
+
+
     const testSession = {
       id: sessionId,
       agentId: 'test-agent',
@@ -107,20 +110,10 @@ describe('StreamingHandler', () => {
       listeners: new Set()
     };
 
-    const mockChunk = (data) => {
-      const json = JSON.stringify(data);
-      const chunk = `data: ${json}\n`;
-      return { value: new TextEncoder().encode(chunk), done: false };
-    };
-
-    const mockEnd = () => ({
-      value: undefined,
-      done: true
-    });
-
     beforeEach(() => {
       sessionManager.getSession.mockReturnValue({ ...testSession });
     });
+
 
     it('should stream response successfully', async () => {
       // Mock reader with two chunks and then done
@@ -139,7 +132,7 @@ describe('StreamingHandler', () => {
         { content: ' World' }
       ]);
 
-      expect(fetch).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledWith(
         'https://dust.test/api/conversations',
         expect.any(Object)
       );
@@ -163,7 +156,7 @@ describe('StreamingHandler', () => {
 
     it('should retry on network error', async () => {
       // First two attempts fail with network error
-      global.fetch
+      mockFetch
         .mockRejectedValueOnce(new Error('ECONNRESET'))
         .mockRejectedValueOnce(new Error('ETIMEDOUT'))
         .mockResolvedValueOnce({
@@ -242,7 +235,8 @@ describe('StreamingHandler', () => {
   describe('cancelRequest', () => {
     it('should cancel an active request', async () => {
       const sessionId = 'test-cancel';
-      const abortSpy = jest.spyOn(AbortController.prototype, 'abort');
+      const { AbortController: NacAbortController } = require('node-abort-controller');
+      const abortSpy = jest.spyOn(NacAbortController.prototype, 'abort');
       
       // Mock a request that will be cancelled
       mockReader.read.mockImplementation(
@@ -274,7 +268,23 @@ describe('StreamingHandler', () => {
   });
 
   describe('error handling', () => {
-    const sessionId = 'test-error';
+    const sessionId = 'test-error'; // Defined once for this block
+    const mockErrorHandlingSession = {
+      id: sessionId, // Use the block-scoped sessionId
+      agentId: 'test-agent-error',
+      conversationId: null,
+      listeners: new Set()
+    };
+
+    beforeEach(() => {
+      // Consistently return a valid session for 'test-error'
+      sessionManager.getSession.mockImplementation(id => {
+        if (id === sessionId) {
+          return { ...mockErrorHandlingSession };
+        }
+        return null; // Or handle other IDs if necessary for other tests
+      });
+    });
     
     it('should handle session not found', async () => {
       sessionManager.getSession.mockReturnValue(null);
@@ -295,7 +305,7 @@ describe('StreamingHandler', () => {
         json: async () => ({ message: 'Rate limited' })
       };
       
-      global.fetch.mockResolvedValueOnce(errorResponse);
+      mockFetch.mockResolvedValueOnce(errorResponse);
       
       await expect(
         (async () => {
@@ -310,7 +320,7 @@ describe('StreamingHandler', () => {
       const networkError = new Error('Network error');
       networkError.code = 'ENOTFOUND';
       
-      global.fetch.mockRejectedValue(networkError);
+      mockFetch.mockRejectedValue(networkError);
       
       const errorSpy = jest.fn();
       handler.on('error', errorSpy);
@@ -324,14 +334,17 @@ describe('StreamingHandler', () => {
       ).rejects.toThrow('Network error');
       
       // Should have retried the max number of times
-      expect(global.fetch).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
+      expect(mockFetch).toHaveBeenCalledTimes(4); // 1 initial + 3 retries (maxRetries = 3)
     });
+
+    // This test was a duplicate or misnamed, content was merged into the one above or handled by other tests.
+    // it('should handle network errors', async () => { }); // Intentionally commented out or removed if truly redundant
 
     it('should handle aborted requests', async () => {
       const abortError = new Error('The user aborted a request.');
       abortError.name = 'AbortError';
       
-      global.fetch.mockRejectedValue(abortError);
+      mockFetch.mockRejectedValue(abortError);
       
       await expect(
         (async () => {
@@ -348,7 +361,7 @@ describe('StreamingHandler', () => {
         body: null // No body
       };
       
-      global.fetch.mockResolvedValueOnce(invalidResponse);
+      mockFetch.mockResolvedValueOnce(invalidResponse);
       
       await expect(
         (async () => {
@@ -361,6 +374,7 @@ describe('StreamingHandler', () => {
   });
   
   describe('session listeners', () => {
+
     const sessionId = 'test-listeners';
     const testMessage = { content: 'Test message' };
     
@@ -422,19 +436,35 @@ describe('StreamingHandler', () => {
   });
   
   describe('destroy', () => {
-    it('should clean up resources', () => {
-      const sessionId = 'test-cleanup';
-      const abortSpy = jest.spyOn(AbortController.prototype, 'abort');
+    it('should clean up resources', async () => {
+      // Start a request to make it active
+      // Ensure this mock allows the request to proceed enough to be active but not fully resolve or reject immediately in a way that prevents destroy logic.
+      mockFetch.mockImplementation(() => new Promise(resolve => {
+        // Simulates a fetch call that starts but doesn't complete, allowing it to be in activeRequests
+        // We don't resolve or reject here, as the abort in destroy() should handle it.
+      }));
+      const streamPromise = handler.streamResponse('test-session-destroy', 'message');
+      // Don't await it fully, just let it start
+      await new Promise(resolve => setTimeout(resolve, 10)); // allow it to be added to activeRequests, give a bit more time
+
+      const { AbortController: NacAbortController } = require('node-abort-controller');
+      const abortSpy = jest.spyOn(NacAbortController.prototype, 'abort');
       
       // Add an active request
       mockReader.read.mockImplementation(() => new Promise(() => {}));
-      void handler.streamResponse(sessionId, 'test');
       
       // Destroy the handler
       handler.destroy();
       
       // Should have aborted the active request
       expect(abortSpy).toHaveBeenCalled();
+
+      // Prevent UnhandledPromiseRejectionWarning by catching the expected error from the cancelled stream
+      await streamPromise.catch(err => {
+        if (err.name !== 'AbortError' && !err.message.includes('aborted')) {
+          // console.error('Unexpected error in destroy test cleanup:', err);
+        }
+      });
       
       // Should have removed all listeners
       expect(handler.listenerCount('error')).toBe(0);

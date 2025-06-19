@@ -1,14 +1,10 @@
-import request from 'supertest';
-import express from 'express';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { jest } from '@jest/globals';
-import { v4 as uuidv4 } from 'uuid';
-import FormData from 'form-data';
-
-// Convert import.meta.url to __dirname equivalent
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const request = require('supertest');
+const express = require('express');
+// fileURLToPath and import.meta.url are for ES modules.
+// __filename and __dirname are globally available in CommonJS.
+const { dirname, join } = require('path');
+const { v4: uuidv4 } = require('uuid');
+const FormData = require('form-data');
 
 // Mock the file system
 const fs = {
@@ -93,7 +89,7 @@ jest.mock('express', () => ({
 }));
 
 // Mock the conversation routes
-import { createConversationRoutes } from '../../routes/conversationRoutes.js';
+const { createConversationRoutes } = require('../../routes/conversationRoutes.js');
 
 // Mock the session manager
 const mockSessionManager = new MockSessionManager();

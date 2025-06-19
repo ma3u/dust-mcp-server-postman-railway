@@ -60,4 +60,4 @@ const apiTool = {
   }
 };
 
-export { apiTool };
+module.exports = { apiTool };

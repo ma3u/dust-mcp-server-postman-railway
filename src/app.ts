@@ -1,7 +1,6 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import { getWorkspaceConfig, getDefaultWorkspaceId } from './config/workspace';
 import { AgentDiscoveryService } from './services/agentDiscovery';
-import { AgentConfiguration } from './types/agent';
 
 class App {
   public app: Application;
@@ -22,7 +21,7 @@ class App {
 
   private initializeRoutes(): void {
     // Health check endpoint
-    this.app.get('/health', (req: Request, res: Response) => {
+    this.app.get('/health', (_req: Request, res: Response) => {
       res.status(200).json({ status: 'ok' });
     });
 
@@ -43,7 +42,7 @@ class App {
 
   private async handleWorkspaceRequest(
     req: Request,
-    res: Response,
+    _res: Response,
     next: NextFunction
   ): Promise<void> {
     try {
@@ -80,6 +79,10 @@ class App {
   ): Promise<void> {
     try {
       const { agentId } = req.params;
+      if (!agentId) {
+        res.status(400).json({ error: 'Agent ID is required' });
+        return;
+      }
       const agent = await this.agentDiscovery.getAgent(
         req.workspaceConfig,
         agentId
@@ -98,7 +101,7 @@ class App {
 
   private initializeErrorHandling(): void {
     this.app.use(
-      (err: Error, req: Request, res: Response, next: NextFunction) => {
+      (err: Error, _req: Request, res: Response, _next: NextFunction) => {
         console.error('Error:', err);
         res.status(500).json({
           error: 'Internal Server Error',

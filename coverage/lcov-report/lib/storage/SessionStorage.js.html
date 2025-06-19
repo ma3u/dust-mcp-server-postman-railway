@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">16.45% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>13/79</span>
+                <span class='fraction'>0/79</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">16% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>4/25</span>
+                <span class='fraction'>0/25</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">21.42% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>3/14</span>
+                <span class='fraction'>0/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">16.66% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>13/78</span>
+                <span class='fraction'>0/78</span>
             </div>
         
             
@@ -295,10 +295,10 @@
 <a name='L230'></a><a href='#L230'>230</a>
 <a name='L231'></a><a href='#L231'>231</a>
 <a name='L232'></a><a href='#L232'>232</a>
-<a name='L233'></a><a href='#L233'>233</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<a name='L233'></a><a href='#L233'>233</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -353,10 +353,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -364,10 +364,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -461,7 +461,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -526,11 +526,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const fs = require('fs').promises;
-const path = require('path');
-const { fileURLToPath } = require('url'); // May not be needed if not used elsewhere
-const { v4: uuidv4 } = require('uuid');
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const fs = <span class="cstat-no" title="statement not covered" >require('fs').promises;</span>
+const path = <span class="cstat-no" title="statement not covered" >require('path');</span>
+const { fileURLToPath } = <span class="cstat-no" title="statement not covered" >require('url');</span> // May not be needed if not used elsewhere
+const { v4: uuidv4 } = <span class="cstat-no" title="statement not covered" >require('uuid');</span>
 &nbsp;
 // __filename and __dirname are globally available in CommonJS modules
 &nbsp;
@@ -584,21 +584,21 @@ class FileSystemSessionStorage extends SessionStorage {
    * @param {string} [options.storagePath] - Path to store session files
    * @param {number} [options.maxSessions=1000] - Maximum number of sessions to keep
    */
-  constructor({ storagePath, maxSessions = 1000 } = <span class="branch-0 cbranch-no" title="branch not covered" >{})</span> {
-    super();
-    this.storagePath = storagePath || <span class="branch-1 cbranch-no" title="branch not covered" >path.join(process.cwd(), '.sessions');</span>
-    this.maxSessions = maxSessions;
-    this.initialized = false;
+<span class="fstat-no" title="function not covered" >  co</span>nstructor({ storagePath, maxSessions = <span class="branch-0 cbranch-no" title="branch not covered" >1000 </span>} = <span class="branch-0 cbranch-no" title="branch not covered" >{})</span> {
+<span class="cstat-no" title="statement not covered" >    super();</span>
+<span class="cstat-no" title="statement not covered" >    this.storagePath = storagePath || path.join(process.cwd(), '.sessions');</span>
+<span class="cstat-no" title="statement not covered" >    this.maxSessions = maxSessions;</span>
+<span class="cstat-no" title="statement not covered" >    this.initialized = false;</span>
   }
 &nbsp;
   /**
    * Initialize storage directory
    * @private
    */
-  async _ensureInitialized() {
-    <span class="missing-if-branch" title="else path not taken" >E</span>if (!this.initialized) {
-      try {
-        await fs.mkdir(this.storagePath, { recursive: true });
+<span class="fstat-no" title="function not covered" >  as</span>ync _ensureInitialized() {
+<span class="cstat-no" title="statement not covered" >    if (!this.initialized) {</span>
+<span class="cstat-no" title="statement not covered" >      try {</span>
+<span class="cstat-no" title="statement not covered" >        await fs.mkdir(this.storagePath, { recursive: true });</span>
 <span class="cstat-no" title="statement not covered" >        this.initialized = true;</span>
       } catch (error) {
 <span class="cstat-no" title="statement not covered" >        console.error(`[FileSystemSessionStorage] Failed to initialize storage:`, error);</span>
@@ -692,8 +692,8 @@ class FileSystemSessionStorage extends SessionStorage {
    * @param {Object} [filter] - Filter criteria
    * @returns {Promise&lt;Array&gt;} Array of session objects
    */
-  async list(filter = {}) {
-    await this._ensureInitialized();
+<span class="fstat-no" title="function not covered" >  as</span>ync list(filter = <span class="branch-0 cbranch-no" title="branch not covered" >{})</span> {
+<span class="cstat-no" title="statement not covered" >    await this._ensureInitialized();</span>
     
 <span class="cstat-no" title="statement not covered" >    try {</span>
       const files = <span class="cstat-no" title="statement not covered" >await fs.readdir(this.storagePath);</span>
@@ -758,7 +758,7 @@ class FileSystemSessionStorage extends SessionStorage {
   }
 }
 &nbsp;
-module.exports = { SessionStorage, FileSystemSessionStorage };
+<span class="cstat-no" title="statement not covered" >module.exports = { SessionStorage, FileSystemSessionStorage };</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -766,7 +766,7 @@ module.exports = { SessionStorage, FileSystemSessionStorage };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-06-15T21:05:17.996Z
+                at 2025-06-16T07:44:21.177Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

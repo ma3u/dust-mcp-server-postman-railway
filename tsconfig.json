@@ -29,11 +29,9 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "declaration": true,
+    "declarationMap": true,
     "sourceMap": true,
     "removeComments": true,
-    "inlineSourceMap": false,
-    "inlineSources": false,
-    "declarationMap": true,
 
     /* JavaScript Support */
     "allowJs": true,

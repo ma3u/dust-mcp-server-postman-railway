@@ -1,6 +1,6 @@
-import { jest } from '@jest/globals';
-import { ConversationManager } from '../../../lib/conversation/ConversationManager.js';
-import { ConversationHistory } from '../../../lib/history/ConversationHistory.js';
+const { jest } = require('@jest/globals');
+const { ConversationManager } = require('../../../lib/conversation/ConversationManager.js');
+const { ConversationHistory } = require('../../../lib/history/ConversationHistory.js');
 
 // Mock SessionManager
 class MockSessionManager {

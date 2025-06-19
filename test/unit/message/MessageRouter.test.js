@@ -1,5 +1,5 @@
-import { jest } from '@jest/globals';
-import { MessageRouter } from '../../../lib/message/MessageRouter.js';
+const { jest } = require('@jest/globals');
+const { MessageRouter } = require('../../../lib/message/MessageRouter.js');
 
 // Mock SessionManager
 class MockSessionManager {
